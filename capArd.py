@@ -11,7 +11,7 @@ server.login("machinehealthgtmoog@gmail.com", "gtmoog2017")
 msg = "Max Val higher than 250"
 
 arr = [0] * 10000
-ser = serial.Serial('/dev/cu.usbModem1411', 115200, 8, 'N', 1)
+ser = serial.Serial('/dev/cu.usbmodem1411', 115200, 8, 'N', 1)
 try:
     while ser.isOpen():
         arrSum = 0
