@@ -13,10 +13,10 @@ To begin logging data onto the InitialState platform follow these steps:
 1. Create a unique API key on InitialState for each machine. This is what will be used to POST data to the server via HTTPS.
 2. Run the following commands on the terminal. These will install all required python libraries:
         <br> 1. pip3 install ISStreamer
-        2. pip3 install pyserial
+        <br> 2. pip3 install pyserial
 3. Use the following format to POST data:
-        from ISStreamer.Streamer import Streamer
-        streamer = Streamer(bucket_name="MoogTest", bucket_key="5LRM9UG8CASH",
+        <br> from ISStreamer.Streamer import Streamer
+        <br> streamer = Streamer(bucket_name="MoogTest", bucket_key="5LRM9UG8CASH",
                     access_key="NCbUQzFnRPMVoXDSjUL40Paxs0ICSV0Q")
-        streamer.log("Key", value)
+        <br> streamer.log("Key", value)
        
