@@ -33,6 +33,7 @@ print('Reading MCP3008 values, press Ctrl-C to quit...')
 # Currently Reading from Analog Channel #1 (8 channels from 0-7)
 print('-' * 57)
 
+# Collect Data and then process for specific information
 def dataCollect(dataLength, mcp):
 	start = time.time()
 	global arr
@@ -47,12 +48,14 @@ def dataCollect(dataLength, mcp):
 	timeElapsed = finish - start
 	return avg, maxVal, stdDev, timeElapsed
 
+# Present information gathered to command line
 def printInfo(avg, maxVal, stdDev, timeElapsed):
 	print("time elapsed: %.3f" % timeElapsed)
 	print("average value: %0.3f" % avg)
 	print("maximum value: %i" % maxVal)
 	print("standard deviation: %0.3f" % stdDev)
 
+# Plot data for quick visualization
 def plotData(arr):
 	y = [i for i in arr]
 	x = [i for i in range(len(arr))]
@@ -60,6 +63,7 @@ def plotData(arr):
 	plt.plot(x,y)
 	plt.show()
 
+# Save data to csv file with current date and time in file name
 def saveData():
 	now = time.strftime("%c")
 	fileName = now + " Test Data.csv"
@@ -68,7 +72,8 @@ def saveData():
 	wr.writerow(arr)
 	print("Data successfully saved to %s" % fileName)
 
-
+# Package information for upload to google script
+# Google script will further process data and write to google sheet
 def sendToGoogleScript(avg, maxVal, stdDev, timeElapsed):
 	payload = {'average': avg, 'maxVal': maxVal, 'stdDev': stdDev, 'timeElapsed': timeElapsed}
 	r = requests.post('https://script.google.com/macros/s/AKfycbzLbPSSnCXWE3XqGUrFFSr1H2TokeX0UfZRHWMLmymDzVb-1Ll9/exec', payload)
