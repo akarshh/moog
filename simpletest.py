@@ -8,6 +8,7 @@ import requests
 import matplotlib.pyplot as plt
 from subprocess import call
 import RPi.GPIO as gpio
+from ISStreamer.Streamer import Streamer
 from requests.exceptions import ConnectionError
 # Import SPI library (for hardware SPI) and MCP3008 library.
 import Adafruit_GPIO.SPI as SPI
@@ -95,6 +96,12 @@ def sendToGoogleScript(avg, maxVal, stdDev, timeElapsed):
 	r = requests.post('https://script.google.com/macros/s/AKfycbzLbPSSnCXWE3XqGUrFFSr1H2TokeX0UfZRHWMLmymDzVb-1Ll9/exec', payload)
 	return r
 
+def sendToIS(streamer, avg, maxVal, stdDev, timeElapsed):
+	streamer.log("Average" , avg)
+	streamer.log("Standard Deviation" , maxVal)
+	streamer.log("Maximum Value" , stdDev)
+	streamer.log("Time Elapsed" , timeElapsed)
+
 def main():
 	gpio.setmode(gpio.BCM)
 	gpio.setup(4, gpio.IN)
@@ -102,6 +109,8 @@ def main():
 	gpio.setup(16, gpio.OUT)
 	gpio.add_event_detect(4, gpio.RISING, callback=shutdown, bouncetime=200)
 	mcp = setupSystem()
+	streamer = Streamer(bucket_name="MoogTest", bucket_key="5LRM9UG8CASH",access_key="NCbUQzFnRPMVoXDSjUL40Paxs0ICSV0Q")
+
 	while int(time.strftime("%H")) <= 23:
 		avg, maxVal, stdDev, timeElapsed = dataCollect(len(arr), mcp)
 		if avg == 0 and maxVal == 0 and stdDev == 0:
@@ -109,14 +118,15 @@ def main():
 		else:
 			gpio.output(16, gpio.LOW)
 		printInfo(avg, maxVal, stdDev, timeElapsed)
-		saveData()
+		#saveData()
 		try:
 			r = sendToGoogleScript(avg, maxVal, stdDev, timeElapsed)
+			sendToIS(streamer, avg, maxVal, stdDev, timeElapsed)
 		except ConnectionError as e:
 			r = "No response."
 			print("Connection error. Check network settings.")
 			gpio.output(16, gpio.HIGH)
-		while r != "No response.":
+		if r != "No response.":
 			gpio.output(16, gpio.LOW)
 	#~ try:
 		#~ plotData(arr)
