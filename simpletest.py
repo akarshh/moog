@@ -1,9 +1,14 @@
 # Analog Data Collection from Machine Vibration Sensor 
 import time
+import sys
+import os
 import numpy as np
 import csv
 import requests
 import matplotlib.pyplot as plt
+from subprocess import call
+import RPi.GPIO as gpio
+from requests.exceptions import ConnectionError
 # Import SPI library (for hardware SPI) and MCP3008 library.
 import Adafruit_GPIO.SPI as SPI
 import Adafruit_MCP3008
@@ -18,9 +23,12 @@ import Adafruit_MCP3008
 
 arr = [0]*100000
 
+def shutdown(pin):
+	call('halt', shell=False)
+
 # Hardware SPI configuration:
 
-def setupSystem():
+def setupSystem():	
 	# Setup SPI for Data Collection
 	SPI_PORT   = 0
 	SPI_DEVICE = 0
@@ -29,23 +37,26 @@ def setupSystem():
 
 
 
-print('Reading MCP3008 values, press Ctrl-C to quit...')
-# Currently Reading from Analog Channel #1 (8 channels from 0-7)
-print('-' * 57)
+
 
 # Collect Data and then process for specific information
 def dataCollect(dataLength, mcp):
+	print('Reading MCP3008 values, press Ctrl-C to quit...')
+	gpio.output(19, gpio.HIGH)
+	# Currently Reading from Analog Channel #1 (8 channels from 0-7)
+	print('-' * 57)
+
 	start = time.time()
 	global arr
 	
 	for i in range(dataLength):
-		arr[i] = mcp.read_adc(1)
-		
+		arr[i] = mcp.read_adc(7)		
 	avg = float(sum(arr))/dataLength
 	maxVal = max(arr)
 	stdDev = np.std(arr)
 	finish = time.time()
 	timeElapsed = finish - start
+	gpio.output(19, gpio.LOW)
 	return avg, maxVal, stdDev, timeElapsed
 
 # Present information gathered to command line
@@ -62,6 +73,10 @@ def plotData(arr):
 
 	plt.plot(x,y)
 	plt.show()
+	fileName = "Data_Plot.png"
+	plt.savefig(fileName)
+	plt.close('all')
+	
 
 # Save data to csv file with current date and time in file name
 def saveData():
@@ -76,16 +91,47 @@ def saveData():
 # Google script will further process data and write to google sheet
 def sendToGoogleScript(avg, maxVal, stdDev, timeElapsed):
 	payload = {'average': avg, 'maxVal': maxVal, 'stdDev': stdDev, 'timeElapsed': timeElapsed}
+	# URL below is the specific google script that handles data collecting on the google sheet
 	r = requests.post('https://script.google.com/macros/s/AKfycbzLbPSSnCXWE3XqGUrFFSr1H2TokeX0UfZRHWMLmymDzVb-1Ll9/exec', payload)
+	return r
 
 def main():
+	gpio.setmode(gpio.BCM)
+	gpio.setup(4, gpio.IN)
+	gpio.setup(19, gpio.OUT)
+	gpio.setup(16, gpio.OUT)
+	gpio.add_event_detect(4, gpio.RISING, callback=shutdown, bouncetime=200)
 	mcp = setupSystem()
-	avg, maxVal, stdDev, timeElapsed = dataCollect(len(arr), mcp)
-	printInfo(avg, maxVal, stdDev, timeElapsed)
-	saveData()
-	sendToGoogleScript(avg, maxVal, stdDev, timeElapsed)
-	plotData(arr)
-	
+	while int(time.strftime("%H")) <= 23:
+		avg, maxVal, stdDev, timeElapsed = dataCollect(len(arr), mcp)
+		if avg == 0 and maxVal == 0 and stdDev == 0:
+			gpio.output(16, gpio.HIGH)
+		else:
+			gpio.output(16, gpio.LOW)
+		printInfo(avg, maxVal, stdDev, timeElapsed)
+		saveData()
+		try:
+			r = sendToGoogleScript(avg, maxVal, stdDev, timeElapsed)
+		except ConnectionError as e:
+			r = "No response."
+			print("Connection error. Check network settings.")
+			gpio.output(16, gpio.HIGH)
+		while r != "No response.":
+			gpio.output(16, gpio.LOW)
+	#~ try:
+		#~ plotData(arr)
+	#~ except KeyboardInterrupt:
+		#~ print("Interrupted")
+	#~ print("")
+
 if __name__ == "__main__":
-	main()
-	
+	try:
+		main()
+	except KeyboardInterrupt:
+		print("Interrupted")
+		gpio.output(16, gpio.LOW)
+		gpio.output(19, gpio.LOW)
+		try:
+			sys.exit(0)
+		except SystemExit:
+			os._exit()
